@@ -4,7 +4,8 @@
 # model
 *.tar
 *.onnx
-Onnxs/childs/*/*.json
+Onnxs/*
+!Onnxs/*.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
