@@ -1,0 +1,26 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::Conv_100",
+            "shape": [
+                15,
+                64,
+                27,
+                27
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "onnx::MaxPool_105",
+            "shape": [
+                15,
+                512,
+                27,
+                27
+            ]
+        }
+    ]
+}

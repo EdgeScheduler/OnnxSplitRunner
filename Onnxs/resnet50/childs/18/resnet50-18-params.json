@@ -1,0 +1,26 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::Relu_409",
+            "shape": [
+                15,
+                1024,
+                14,
+                14
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "input.212",
+            "shape": [
+                15,
+                1024,
+                14,
+                14
+            ]
+        }
+    ]
+}

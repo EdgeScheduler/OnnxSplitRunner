@@ -1,0 +1,26 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::Conv_59",
+            "shape": [
+                15,
+                512,
+                28,
+                28
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "input.48",
+            "shape": [
+                15,
+                512,
+                28,
+                28
+            ]
+        }
+    ]
+}

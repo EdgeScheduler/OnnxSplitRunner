@@ -1,0 +1,24 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::Flatten_76",
+            "shape": [
+                15,
+                512,
+                7,
+                7
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "onnx::Gemm_77",
+            "shape": [
+                15,
+                25088
+            ]
+        }
+    ]
+}

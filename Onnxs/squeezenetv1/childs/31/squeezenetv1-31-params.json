@@ -1,0 +1,26 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::GlobalAveragePool_115",
+            "shape": [
+                15,
+                1000,
+                13,
+                13
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "onnx::Flatten_116",
+            "shape": [
+                15,
+                1000,
+                1,
+                1
+            ]
+        }
+    ]
+}

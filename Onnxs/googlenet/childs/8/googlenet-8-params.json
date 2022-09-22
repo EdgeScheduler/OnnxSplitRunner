@@ -1,0 +1,26 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::MaxPool_379",
+            "shape": [
+                15,
+                192,
+                56,
+                56
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "input.19",
+            "shape": [
+                15,
+                192,
+                28,
+                28
+            ]
+        }
+    ]
+}

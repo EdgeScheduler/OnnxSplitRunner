@@ -1,0 +1,22 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::Gemm_77",
+            "shape": [
+                15,
+                25088
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "input.84",
+            "shape": [
+                15,
+                4096
+            ]
+        }
+    ]
+}

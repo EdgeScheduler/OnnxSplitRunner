@@ -1,0 +1,26 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "input.19",
+            "shape": [
+                15,
+                192,
+                28,
+                28
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "input.51",
+            "shape": [
+                15,
+                256,
+                28,
+                28
+            ]
+        }
+    ]
+}

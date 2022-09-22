@@ -1,0 +1,24 @@
+{
+    "input": [
+        {
+            "type": "float32",
+            "name": "onnx::Flatten_116",
+            "shape": [
+                15,
+                1000,
+                1,
+                1
+            ]
+        }
+    ],
+    "output": [
+        {
+            "type": "float32",
+            "name": "output",
+            "shape": [
+                15,
+                1000
+            ]
+        }
+    ]
+}
