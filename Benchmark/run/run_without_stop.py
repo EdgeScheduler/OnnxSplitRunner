@@ -78,6 +78,6 @@ for model_name in model_names:
 
         gpuHandle=GetGPUMemoryHandle()
 
-        runmodule.RunChildModelByIdx(model_name,idx,input_dict,None,Config.ModelParamsFile(model_name=model_name),driver=mydriver)
+        runmodule.RunChildModelByIdx(model_name,idx,input_dict,None,Config.ChildModelSumParamsDict(model_name=model_name),driver=mydriver)
 
         print("2->:",GetGPUUsed(gpuHandle)-start_memory,"MB", "; total: ",GetGPUUsed(gpuHandle)-raw_memory,"MB")

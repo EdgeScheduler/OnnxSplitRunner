@@ -68,7 +68,7 @@ if __name__ == "__main__":
                 current_time["childs"]=childs_time
                 time_whole_child=time.time()
                 pythonLib=importlib.import_module("ModelFuntionsPython.childs.{}".format(model_name))
-                params_dict=Config.ModelParamsFile(model_name=model_name)
+                params_dict=Config.ChildModelSumParamsDict(model_name=model_name)
                 output=None
                 for idx in range(len(params_dict)):
                     time_run_child_model=time.time()

@@ -55,7 +55,7 @@ if __name__ == "__main__":
             model_by_driver_data["whole_gpu_memory_by_function"]=memory_cost
 
             print("> child model time:")
-            _,avg_time_list,memory_list=runmodule.RunAllChildModelSequentially(model_name,input,None,Config.ModelParamsFile(model_name=model_name),driver=mydriver,count=test_count)
+            _,avg_time_list,memory_list=runmodule.RunAllChildModelSequentially(model_name,input,None,Config.ChildModelSumParamsDict(model_name=model_name),driver=mydriver,count=test_count)
             model_by_driver_data["whole_time_by_child"]={}
             model_by_driver_data["whole_gpu_memory_by_childs"]={}
             model_by_driver_data["whole_time_by_child"]["childs"]=avg_time_list

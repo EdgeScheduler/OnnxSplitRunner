@@ -4,6 +4,7 @@ from typing import List
 from config import Config
 import json
 import os
+from typing import Dict,List
 
 class OnnxType:
     @staticmethod
@@ -158,9 +159,12 @@ class ModelAnalyzer():
         split and store child onnx-models to disk with childs as start node. if real start not in, add we will add it automatically.
         '''
         
+        total_param={}
         childs=sorted(childs,key=lambda x: x.idx)
         if len(childs)<1 or childs[0].idx!=0:
             childs.insert(0,self.nodes[0])
+
+        total_param[-1]=ModelAnalyzer.CreateParamsInfo(self.onnxPath,Config.ModelParamsSavePathName(self.modelName))
 
         for child_idx in range(len(childs)):
             start_node=childs[child_idx]
@@ -187,10 +191,13 @@ class ModelAnalyzer():
             except Exception as ex:
                 print("error{}: ".format(type(ex)),ex)
                 return 
-            ModelAnalyzer.CreateParamsInfo(child_onnx_path,child_params_path)
+            total_param[child_idx] = ModelAnalyzer.CreateParamsInfo(child_onnx_path,child_params_path)
+
+        with open(Config.ChildModelSumParamsSavePathName(self.modelName),"w") as fp:
+            json.dump(total_param,fp,indent=4)
 
     @staticmethod
-    def CreateParamsInfo(onnx_path:str,params_path:str)->bool:
+    def CreateParamsInfo(onnx_path:str,params_path:str)->Dict[str,List[dict]]:
         model = onnx.load(onnx_path)
         
         params_dict={"input": [], "output":[]}
@@ -215,6 +222,7 @@ class ModelAnalyzer():
             os.makedirs(os.path.dirname(os.path.abspath(params_path)),exist_ok=True)
             with open(params_path,"w") as fp:
                 json.dump(params_dict,fp,indent=4)
+        return params_dict
 
     def GetConvergeNodes(self)->List[GraphNode]:
         result=[]

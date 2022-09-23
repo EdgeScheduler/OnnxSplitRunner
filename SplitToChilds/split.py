@@ -7,10 +7,13 @@ def SplitModel(model_name,onnx_path=None):
     # for node in modelAnalyzer:
     #     print(node)
 
-    # convergenceNodes = modelAnalyzer.GetAllNodes()
-    convergenceNodes = modelAnalyzer.GetConvergeNodes()
-    modelAnalyzer.SplitAndStoreChilds(convergenceNodes)
+    nodes = modelAnalyzer.GetAllNodes()
+
+    count=len(modelAnalyzer)
+
+    # convergenceNodes = modelAnalyzer.GetConvergeNodes()
+    modelAnalyzer.SplitAndStoreChilds([nodes[count//3],nodes[count*2//3]])
 
 if __name__ == "__main__":
-    model_name = "resnet50"
+    model_name = "vgg19"
     SplitModel(model_name)
