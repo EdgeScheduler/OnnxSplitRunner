@@ -10,7 +10,6 @@ def Print(result:dict):
         print(k,":",v[0][:10])
     print()
 
-
 driver=['CUDAExecutionProvider']
 
 if __name__ == "__main__":
@@ -21,11 +20,11 @@ if __name__ == "__main__":
         print("\n==>start to validate model:",model_name)
 
         input_dict={}
-        for value in model_params["input"]:
-            shape=[v if v>=0 else default_batchsize for v in  value["shape"]]
+        for value in model_params["input"]["data"]:
+            shape=[v if v>=0 else default_batchsize for v in value["shape"]]
             input_dict[value["name"]]=np.array(np.random.randn(*shape),dtype=value["type"])
 
         output=runmodule.RunWholeOnnxModel(model_name,input_dict,driver)                
-        # Print(output)
+        Print(output)
         output=runmodule.RunChildOnnxModelSequentially(model_name,input_dict,driver)  
-        # Print(output)
+        Print(output)

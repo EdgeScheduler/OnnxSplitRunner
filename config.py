@@ -75,6 +75,20 @@ class Config:
         return os.path.join(Config.OnnxSaveFold, name,"childs",str(idx), "{}-{}.onnx".format(name,str(idx))),os.path.join(Config.OnnxSaveFold, name,"childs",str(idx), "{}-{}-params.json".format(name,str(idx)))
 
     @staticmethod
+    def TempChildModelSavePathName(name)->Tuple[str,str]:
+        os.makedirs(os.path.join(Config.OnnxSaveFold, name,"childs"),exist_ok=True)
+        return os.path.join(Config.OnnxSaveFold, name,"childs","temp.onnx"),os.path.join(Config.OnnxSaveFold, name,"childs","temp.json")
+    
+    @staticmethod
+    def RemoveTempChildModelSavePathName(name):
+        tmp_onnx_path,tmp_param_path=Config.TempChildModelSavePathName(name)
+        if os.path.exists(tmp_onnx_path):
+            os.remove(tmp_onnx_path)
+        
+        if os.path.exists(tmp_param_path):
+            os.remove(tmp_param_path)
+
+    @staticmethod
     def ChildModelSumParamsSavePathName(name) -> str:
         '''
         name is given when you create the data. Return "$project_path/Onnxs/$name/childs/$name-params.json"

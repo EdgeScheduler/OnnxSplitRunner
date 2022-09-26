@@ -1,16 +1,4 @@
-import pynvml
-import time
-
-def GetGPUMemoryHandle():
-    pynvml.nvmlInit() 
-    return pynvml.nvmlDeviceGetHandleByIndex(0)
-
-
-def GetGPUUsed(handle)->float:
-    '''
-    return MIB
-    '''
-    return pynvml.nvmlDeviceGetMemoryInfo(handle).used/1048576  # MB
+from GPUReader import GetGPUMemoryHandle,GetGPUUsed
 
 def Run():
     gpuHandle=GetGPUMemoryHandle()

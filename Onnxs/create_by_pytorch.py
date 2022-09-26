@@ -9,7 +9,7 @@ mymodels={
     "googlenet": torchvision.models.googlenet(pretrained=True),
     "resnet50": torchvision.models.resnet50(pretrained=True),
     "vgg19": torchvision.models.vgg19(pretrained=True),
-    "squeezenetv1": torchvision.models.squeezenet1_0(pretrained=True)
+    "squeezenetv1": torchvision.models.squeezenet1_0(pretrained=True),
 }
 
 for model_name in mymodels:

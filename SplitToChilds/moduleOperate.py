@@ -1,3 +1,5 @@
+from operator import index
+from selectors import EpollSelector
 import onnx
 from onnx.onnx_ml_pb2 import NodeProto
 from typing import List
@@ -59,6 +61,9 @@ class GraphNode():
 
         self.params=set()               # type: set[str]
 
+        self.input_info={}              # {"data": [{"type": str, "name": str, "shape": list, "cost": float}], "cost": float}
+        self.output_info={}             # {"data": [], "cost": 0}}
+
         for input_name in list(node.input):
             if input_name in TotalParams:
                 self.params.add(input_name)
@@ -69,7 +74,7 @@ class GraphNode():
         self.idx=index                  # type: int
 
     def __str__(self) -> str:
-        return "id={}, name={}, inputs={}, outputs={}, dependencies_inputs={}, dependencies_outputs={}".format(self.idx,self.name,self.inputs,self.outputs, self.dependencies_inputs, self.dependencies_outputs)
+        return "id={}, name={}, inputs={}, outputs={}, dependencies_inputs={}, dependencies_outputs={}, input_info: {}, output_info: {}".format(self.idx,self.name,self.inputs,self.outputs, self.dependencies_inputs, self.dependencies_outputs, self.input_info, self.output_info)
 
     def IsConvergeNode(self)->bool:
         return True if len(self.dependencies_inputs)<2 else False
@@ -96,12 +101,15 @@ class ModelAnalyzer():
         else:
             self.onnxPath=onnx_path
 
-        self.nodes=[]           # type: list[GraphNode]
-        self.params=None        # type: list[str]
-        # self.shapes={}          # type: dict[str, dict[str, any]]        # {"name": {"shape": (-1,15), "type": "float32"}}
+        self.nodes=[]                   # type: list[GraphNode]
+        self.start_node=None            # type: GraphNode                       # find the first node that enable to be end. if raw_input in output, it will get 'KeyError', we need this value until we find a solution
+        self.params=None                # type: list[str]
+        # self.shapes={}                # type: dict[str, dict[str, any]]       # {"name": {"shape": (-1,15), "type": "float32"}}
         
         if not self.Init():
-            pass
+            return
+
+        self.RuntimeAnalyze()
 
     def Init(self)->bool:
         try:
@@ -130,6 +138,40 @@ class ModelAnalyzer():
             print("error: fail to init model-analyzer")
             print(str(ex))
             return False
+        return True
+
+    def EnableStart(self,node:GraphNode)->bool:
+        if node==self.nodes[0] or node.idx>self.start_node.idx:
+            return True
+        else:
+            return False
+
+    def RuntimeAnalyze(self):
+        tmp_onnx_path,tmp_param_path=Config.TempChildModelSavePathName(self.modelName)
+        for node in self.nodes:
+            info = self.ExtractModelByNode(self.onnxPath,tmp_onnx_path,tmp_param_path,node,node)
+            
+            if info is not None:
+                node.input_info=info["input"]
+                node.output_info=info["output"]
+                if self.start_node is None:
+                    self.start_node=node
+        Config.RemoveTempChildModelSavePathName(self.modelName)
+
+    def ExtractModelByNode(self,raw_onnx_path:str,new_onnx_path:str,new_onnx_praram_path:str,start_node: GraphNode,end_node: GraphNode)->Dict[str,dict]:
+        try:
+            onnx.utils.extract_model(raw_onnx_path,new_onnx_path, start_node.dependencies_inputs, end_node.dependencies_outputs)
+        except onnx.onnx_cpp2py_export.checker.ValidationError:
+            params=set()
+            for idx in range(start_node.idx,end_node.idx+1):
+                params |= self.nodes[idx].params
+            onnx.utils.extract_model(raw_onnx_path,new_onnx_path , start_node.dependencies_inputs+list(params), end_node.dependencies_outputs)
+        except Exception as ex:
+            # print(raw_onnx_path,new_onnx_path , start_node.dependencies_inputs, end_node.dependencies_outputs)
+            print("error {}: ".format(type(ex)),ex)
+            return None
+
+        return ModelAnalyzer.CreateParamsInfo(new_onnx_path,new_onnx_praram_path)
 
     # don't consider extra-output in middle of model at this time
     def RecordDependency(self):
@@ -154,13 +196,13 @@ class ModelAnalyzer():
                 # self.nodes[idx-1].dependencies_outputs=list(out)
                 self.nodes[idx-1].dependencies_outputs=self.nodes[idx].dependencies_inputs
 
-    def SplitAndStoreChilds(self,childs: List[GraphNode]):
+    def SplitAndStoreChilds(self,childs: List[GraphNode])->dict:
         '''
         split and store child onnx-models to disk with childs as start node. if real start not in, add we will add it automatically.
         '''
         
         total_param={}
-        childs=sorted(childs,key=lambda x: x.idx)
+        childs=sorted([child for child in childs if self.EnableStart(child)],key=lambda x: x.idx)
         if len(childs)<1 or childs[0].idx!=0:
             childs.insert(0,self.nodes[0])
 
@@ -172,7 +214,7 @@ class ModelAnalyzer():
             if child_idx+1<len(childs):
                 end_node=self.nodes[childs[child_idx+1].idx-1]
 
-            print("{}-{} ==|>".format(self.modelName,child_idx), start_node.dependencies_inputs,"-->", end_node.dependencies_outputs)
+            print("{}-{} ==|>".format(self.modelName,child_idx), start_node.name,"-->", end_node.name)
 
             # params=set()
             # for idx in range(start_node.idx,end_node.idx+1):
@@ -181,26 +223,30 @@ class ModelAnalyzer():
             # print(params)
 
             child_onnx_path,child_params_path=Config.ChildModelSavePathName(self.modelName,child_idx)
-            try:
-                onnx.utils.extract_model(self.onnxPath,child_onnx_path , start_node.dependencies_inputs, end_node.dependencies_outputs)
-            except onnx.onnx_cpp2py_export.checker.ValidationError:
-                params=set()
-                for idx in range(start_node.idx,end_node.idx+1):
-                    params |= self.nodes[idx].params
-                onnx.utils.extract_model(self.onnxPath,child_onnx_path , start_node.dependencies_inputs+list(params), end_node.dependencies_outputs)
-            except Exception as ex:
-                print("error{}: ".format(type(ex)),ex)
-                return 
-            total_param[child_idx] = ModelAnalyzer.CreateParamsInfo(child_onnx_path,child_params_path)
+            total_param[child_idx] = self.ExtractModelByNode(self.onnxPath,child_onnx_path,child_params_path,start_node,end_node)
+
+            # try:
+            #     onnx.utils.extract_model(self.onnxPath,child_onnx_path , start_node.dependencies_inputs, end_node.dependencies_outputs)
+            # except onnx.onnx_cpp2py_export.checker.ValidationError:
+            #     params=set()
+            #     for idx in range(start_node.idx,end_node.idx+1):
+            #         params |= self.nodes[idx].params
+            #     onnx.utils.extract_model(self.onnxPath,child_onnx_path , start_node.dependencies_inputs+list(params), end_node.dependencies_outputs)
+            # except Exception as ex:
+            #     print("error{}: ".format(type(ex)),ex)
+            #     return 
+            # total_param[child_idx] = ModelAnalyzer.CreateParamsInfo(child_onnx_path,child_params_path)
 
         with open(Config.ChildModelSumParamsSavePathName(self.modelName),"w") as fp:
             json.dump(total_param,fp,indent=4)
 
+        return total_param
+
     @staticmethod
-    def CreateParamsInfo(onnx_path:str,params_path:str)->Dict[str,List[dict]]:
+    def CreateParamsInfo(onnx_path:str,params_path:str,default_batch=15)->Dict[str,dict]:
         model = onnx.load(onnx_path)
         
-        params_dict={"input": [], "output":[]}
+        params_dict={"input": {"data":[], "cost":0}, "output":{"data":[], "cost":0}}
 
         weight_params=set([v.name for v in model.graph.initializer])
 
@@ -214,10 +260,21 @@ class ModelAnalyzer():
                 param["type"] = OnnxType.GetElemType(m.type.tensor_type.elem_type)
                 param["name"] = str(m.name)
                 shape_list=[]
+                mul_value=1
                 for v in m.type.tensor_type.shape.dim:
                     shape_list.append(v.dim_value if isinstance(v.dim_value, int) and v.dim_value>0  else -1)
+                    mul_value*=v.dim_value if isinstance(v.dim_value, int) and v.dim_value>0  else default_batch
                 param["shape"] = tuple(shape_list)
-                params_dict[k].append(param)
+                
+                cost=0.0
+                if "int" in param["type"]:
+                    cost=mul_value*4
+                else:
+                    cost=mul_value*4
+                param["cost"]=cost/(1024*1024)                                              # MB
+                params_dict[k]["cost"]+=cost
+                params_dict[k]["data"].append(param)
+            params_dict[k]["cost"]=params_dict[k]["cost"]/(1024*1024)                       # MB
 
             os.makedirs(os.path.dirname(os.path.abspath(params_path)),exist_ok=True)
             with open(params_path,"w") as fp:

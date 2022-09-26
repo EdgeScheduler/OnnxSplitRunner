@@ -16,7 +16,7 @@ test_count=25
 
 if __name__ == "__main__":
     print("run validate:")
-    model_name="googlenet"
+    model_name="yolov2"
     model_params = Config.LoadModelParamsDictById(model_name)
 
     print("\n==>start to validate model:",model_name)
@@ -26,12 +26,13 @@ if __name__ == "__main__":
         shape=[v if v>=0 else default_batchsize for v in  value["shape"]]
         input_dict[value["name"]]=np.array(np.random.randn(*shape),dtype=value["type"])
 
-    # print("raw")
-    # for _ in range(test_count):
-    #     output=runmodule.RunWholeOnnxModel(model_name,input_dict,driver)
-    # Print(output)
-
     print("child")
     for _ in range(test_count):
         output=runmodule.RunChildOnnxModelSequentially(model_name,input_dict,driver)
-    # Print(output)
+    Print(output)  # 705.875MB
+
+
+    print("raw")
+    for _ in range(test_count):
+        output=runmodule.RunWholeOnnxModel(model_name,input_dict,driver)
+    Print(output)  # 1151.875
