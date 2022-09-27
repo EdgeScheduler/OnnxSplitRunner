@@ -78,6 +78,19 @@ class Config:
     def TempChildModelSavePathName(name)->Tuple[str,str]:
         os.makedirs(os.path.join(Config.OnnxSaveFold, name,"childs"),exist_ok=True)
         return os.path.join(Config.OnnxSaveFold, name,"childs","temp.onnx"),os.path.join(Config.OnnxSaveFold, name,"childs","temp.json")
+
+    @staticmethod
+    def ChildModelSumCacheSavePathName(name)->str:
+        os.makedirs(os.path.join(Config.OnnxSaveFold, name,"childs"),exist_ok=True)
+        return os.path.join(Config.OnnxSaveFold, name,"childs","cache.json")
+
+    def LoadChildModelSumCacheDict(name)->dict:
+        with open(Config.ChildModelSumCacheSavePathName(name),"r") as fp:
+            try:
+                return json.load(fp)
+            except Exception as ex:
+                print("warning:",ex)
+                return {}
     
     @staticmethod
     def RemoveTempChildModelSavePathName(name):

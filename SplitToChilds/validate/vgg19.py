@@ -17,13 +17,13 @@ test_count=10
 
 if __name__ == "__main__":
     print("run validate:")
-    model_name="vgg19"
+    model_name="yolov2"
     model_params = Config.LoadModelParamsDictById(model_name)
 
     print("\n==>start to validate model:",model_name)
 
     input_dict={}
-    for value in model_params["input"]:
+    for value in model_params["input"]["data"]:
         shape=[v if v>=0 else default_batchsize for v in  value["shape"]]
         input_dict[value["name"]]=np.array(np.random.randn(*shape),dtype=value["type"])
 
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     for _ in range(test_count):
         output=runmodule.RunChildOnnxModelSequentially(model_name,input_dict,driver)
     print((time.time()-start)/test_count)       # 3.08s 1585.875 MB  1.427s
-    Print(output)
+    # Print(output)
 
     print("raw")
     start=time.time()

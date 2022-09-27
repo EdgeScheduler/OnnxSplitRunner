@@ -6,6 +6,7 @@ from typing import List
 from config import Config
 import json
 import os
+import time
 from typing import Dict,List
 
 class OnnxType:
@@ -62,7 +63,7 @@ class GraphNode():
         self.params=set()               # type: set[str]
 
         self.input_info={}              # {"data": [{"type": str, "name": str, "shape": list, "cost": float}], "cost": float}
-        self.output_info={}             # {"data": [], "cost": 0}}
+        # self.output_info={}           # {"data": [{"type": str, "name": str, "shape": list, "cost": float}], "cost": float}
 
         for input_name in list(node.input):
             if input_name in TotalParams:
@@ -74,7 +75,7 @@ class GraphNode():
         self.idx=index                  # type: int
 
     def __str__(self) -> str:
-        return "id={}, name={}, inputs={}, outputs={}, dependencies_inputs={}, dependencies_outputs={}, input_info: {}, output_info: {}".format(self.idx,self.name,self.inputs,self.outputs, self.dependencies_inputs, self.dependencies_outputs, self.input_info, self.output_info)
+        return "id={}, name={}, inputs={}, outputs={}, dependencies_inputs={}, dependencies_outputs={}, input_info: {}".format(self.idx,self.name,self.inputs,self.outputs, self.dependencies_inputs, self.dependencies_outputs, self.input_info)
 
     def IsConvergeNode(self)->bool:
         return True if len(self.dependencies_inputs)<2 else False
@@ -105,6 +106,8 @@ class ModelAnalyzer():
         self.start_node=None            # type: GraphNode                       # find the first node that enable to be end. if raw_input in output, it will get 'KeyError', we need this value until we find a solution
         self.params=None                # type: list[str]
         # self.shapes={}                # type: dict[str, dict[str, any]]       # {"name": {"shape": (-1,15), "type": "float32"}}
+
+        self.use_cache=True
         
         if not self.Init():
             return
@@ -140,25 +143,63 @@ class ModelAnalyzer():
             return False
         return True
 
+    def SetEnableCache(self,enable:bool=True):
+        self.use_cache=enable
+
     def EnableStart(self,node:GraphNode)->bool:
         if node==self.nodes[0] or node.idx>self.start_node.idx:
             return True
         else:
             return False
 
-    def RuntimeAnalyze(self):
-        tmp_onnx_path,tmp_param_path=Config.TempChildModelSavePathName(self.modelName)
-        for node in self.nodes:
-            info = self.ExtractModelByNode(self.onnxPath,tmp_onnx_path,tmp_param_path,node,node)
-            
-            if info is not None:
-                node.input_info=info["input"]
-                node.output_info=info["output"]
-                if self.start_node is None:
-                    self.start_node=node
-        Config.RemoveTempChildModelSavePathName(self.modelName)
+    def LoadCache(self)->dict:
+        return Config.LoadChildModelSumCacheDict(self.modelName)
 
-    def ExtractModelByNode(self,raw_onnx_path:str,new_onnx_path:str,new_onnx_praram_path:str,start_node: GraphNode,end_node: GraphNode)->Dict[str,dict]:
+    def RuntimeAnalyze(self):
+        print("start to analyze model, it may cost some time.")
+        cache={}
+        if self.use_cache:
+            cache=Config.LoadChildModelSumCacheDict(self.modelName)
+
+        if len(cache)<1 or "data" not in cache or len(cache["data"])!=len(self.nodes):
+            cache["model-path"]=self.onnxPath
+            cache["model-name"]=self.modelName
+            cache["create-time"]=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            cache["data"]={}
+            tmp_onnx_path,tmp_param_path=Config.TempChildModelSavePathName(self.modelName)
+            for idx,node in enumerate(self.nodes):
+                info = self.ExtractModelByNode(self.onnxPath,tmp_onnx_path,tmp_param_path,node,node,print_error=False)
+                
+                if info is not None:
+                    node.input_info=info["input"]
+                    # node.output_info=info["output"]
+                    if self.start_node is None:
+                        self.start_node=node
+                cache["data"][str(idx)]=info
+            Config.RemoveTempChildModelSavePathName(self.modelName)
+        else:
+            print("load cache created at %s"%(cache["create-time"]))
+            for idx,node in enumerate(self.nodes):
+                info=cache["data"][str(idx)]
+                if info is not None:
+                    if "input" in info:
+                        node.input_info=info["input"]
+                    # if "output" in info:
+                    #     node.output_info=info["output"]
+                    if self.start_node is None:
+                        self.start_node=node
+
+        if len(self.nodes[0].input_info)<1:
+            info=ModelAnalyzer.CreateParamsInfo(self.onnxPath,Config.ModelParamsSavePathName(self.modelName))
+            self.nodes[0].input_info=info["input"]
+            cache["data"][0]=info
+            del cache["data"]["0"]["output"]
+
+        with open(Config.ChildModelSumCacheSavePathName(self.modelName),"w") as fp:
+            json.dump(cache,fp,indent=4)
+        print("model analyze ok.")
+
+    def ExtractModelByNode(self,raw_onnx_path:str,new_onnx_path:str,new_onnx_praram_path:str,start_node: GraphNode,end_node: GraphNode, print_error=True)->Dict[str,dict]:
         try:
             onnx.utils.extract_model(raw_onnx_path,new_onnx_path, start_node.dependencies_inputs, end_node.dependencies_outputs)
         except onnx.onnx_cpp2py_export.checker.ValidationError:
@@ -168,7 +209,8 @@ class ModelAnalyzer():
             onnx.utils.extract_model(raw_onnx_path,new_onnx_path , start_node.dependencies_inputs+list(params), end_node.dependencies_outputs)
         except Exception as ex:
             # print(raw_onnx_path,new_onnx_path , start_node.dependencies_inputs, end_node.dependencies_outputs)
-            print("error {}: ".format(type(ex)),ex)
+            if print_error:
+                print("error {}: ".format(type(ex)),ex)
             return None
 
         return ModelAnalyzer.CreateParamsInfo(new_onnx_path,new_onnx_praram_path)
