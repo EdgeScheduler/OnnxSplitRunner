@@ -85,12 +85,12 @@ class Config:
         return os.path.join(Config.OnnxSaveFold, name,"childs","cache.json")
 
     def LoadChildModelSumCacheDict(name)->dict:
-        with open(Config.ChildModelSumCacheSavePathName(name),"r") as fp:
-            try:
+        try:
+            with open(Config.ChildModelSumCacheSavePathName(name),"r") as fp:
                 return json.load(fp)
-            except Exception as ex:
-                print("warning:",ex)
-                return {}
+        except Exception as ex:
+            print("warning:",ex)
+            return {}
     
     @staticmethod
     def RemoveTempChildModelSavePathName(name):

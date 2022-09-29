@@ -1,16 +1,21 @@
 from config import Config
 import onnxruntime
 import numpy as np
-from typing import List,Dict
-from memory_profiler import profile
+from typing import List,Dict,Tuple
+# from memory_profiler import profile
 
 def RunOnnxModelByPath(model_path: str, input_dict: dict, driver:List[str]=['CPUExecutionProvider'])->Dict[str,np.ndarray]:
     session = onnxruntime.InferenceSession(model_path,providers=driver) 
 
+    result,_=RunOnnxModelWithSession(session,input_dict)
+
+    return result
+
+def RunOnnxModelWithSession(session, input_dict: dict)->Tuple[Dict[str,np.ndarray],onnxruntime.InferenceSession]:
     output_labels=[v.name for v in session.get_outputs()]
     result = session.run(output_labels, input_dict)
 
-    return {k:v for k,v in zip(output_labels,result)}
+    return {k:v for k,v in zip(output_labels,result)},session
 
 # @profile
 def RunWholeOnnxModel(model_name: str, input_dict: dict, driver:List[str]=['CPUExecutionProvider'])->Dict[str,np.ndarray]:

@@ -186,14 +186,16 @@ class ModelAnalyzer():
                         node.input_info=info["input"]
                     # if "output" in info:
                     #     node.output_info=info["output"]
-                    if self.start_node is None:
+                    if self.start_node is None and ("global" not in info or not info["global"]):
                         self.start_node=node
 
         if len(self.nodes[0].input_info)<1:
             info=ModelAnalyzer.CreateParamsInfo(self.onnxPath,Config.ModelParamsSavePathName(self.modelName))
             self.nodes[0].input_info=info["input"]
-            cache["data"][0]=info
-            del cache["data"]["0"]["output"]
+            cache["data"]["0"]=info
+            cache["global"]=True
+            if "output" in cache["data"]["0"]:
+                del cache["data"]["0"]["output"]
 
         with open(Config.ChildModelSumCacheSavePathName(self.modelName),"w") as fp:
             json.dump(cache,fp,indent=4)
@@ -248,12 +250,25 @@ class ModelAnalyzer():
         if len(childs)<1 or childs[0].idx!=0:
             childs.insert(0,self.nodes[0])
 
-        total_param[-1]=ModelAnalyzer.CreateParamsInfo(self.onnxPath,Config.ModelParamsSavePathName(self.modelName))
+        # delete repeated item
+        childs_=[]
+        tmp=-1
+        for child in childs:
+            if child.idx>tmp:
+                childs_.append(child)
+                tmp=child.idx
+        childs=childs_
+
+        info=ModelAnalyzer.CreateParamsInfo(self.onnxPath,Config.ModelParamsSavePathName(self.modelName))
+        info["from"]=self.nodes[0].idx
+        info["to"]=self.nodes[-1].idx
+        total_param[-1]=info
 
         for child_idx in range(len(childs)):
             start_node=childs[child_idx]
             end_node=self.nodes[-1]
             if child_idx+1<len(childs):
+                # print("debug: ",[v.idx for v in childs],childs[child_idx+1].idx-1)
                 end_node=self.nodes[childs[child_idx+1].idx-1]
 
             print("{}-{} ==|>".format(self.modelName,child_idx), start_node.name,"-->", end_node.name)
@@ -265,7 +280,10 @@ class ModelAnalyzer():
             # print(params)
 
             child_onnx_path,child_params_path=Config.ChildModelSavePathName(self.modelName,child_idx)
-            total_param[child_idx] = self.ExtractModelByNode(self.onnxPath,child_onnx_path,child_params_path,start_node,end_node)
+            info = self.ExtractModelByNode(self.onnxPath,child_onnx_path,child_params_path,start_node,end_node)
+            info["from"]=start_node.idx
+            info["to"]=end_node.idx
+            total_param[child_idx]=info
 
             # try:
             #     onnx.utils.extract_model(self.onnxPath,child_onnx_path , start_node.dependencies_inputs, end_node.dependencies_outputs)

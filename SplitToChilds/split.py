@@ -1,5 +1,4 @@
 from SplitToChilds.moduleOperate import ModelAnalyzer
-from config import Config
 
 def SplitModel(model_name,onnx_path=None):
     modelAnalyzer=ModelAnalyzer(model_name,onnx_path)

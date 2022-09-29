@@ -17,7 +17,7 @@ test_count=10
 
 if __name__ == "__main__":
     print("run validate:")
-    model_name="resnet50"
+    model_name="squeezenetv1"
     model_params = Config.LoadModelParamsDictById(model_name)
 
     print("\n==>start to validate model:",model_name)
