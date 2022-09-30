@@ -64,7 +64,7 @@ def signal_process(model_name,data_batch=data_batch,provider = "CUDAExecutionPro
     proccess_cost=time.time()-process_start
 
     print(">",model_name,"(s):",sum(costs))
-    print(model_name,"process sum (s):",proccess_cost)
+    print(model_name,"process sum (s):",proccess_cost,provider=provider)
    
 
 def main():

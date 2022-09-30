@@ -67,7 +67,7 @@ def signal_process(model_name,data_batch=data_batch,provider = "CUDAExecutionPro
     print(">",model_name,"(s):",sum(costs))
 
 def main():
-    signal_process("googlenet")
+    signal_process("googlenet",provider=provider)
 
 if __name__=="__main__":
     main()

@@ -68,7 +68,7 @@ def signal_process(model_name,data_batch=data_batch,provider = "CUDAExecutionPro
 
 
 def main():
-    signal_process("squeezenetv1")
+    signal_process("squeezenetv1",provider=provider)
 
 if __name__=="__main__":
     main()
