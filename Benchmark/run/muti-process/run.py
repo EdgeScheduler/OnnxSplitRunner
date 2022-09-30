@@ -5,12 +5,12 @@ import numpy as np
 import onnxruntime as ort
 from config import Config
 from threading import Thread
-from multiprocessing import Process,Manager, Pool
+from multiprocessing import Process
 from typing import List,Tuple
 
 provider = "CUDAExecutionProvider"
 default_batchsize=15
-data_batch=30
+data_batch=900
 
 def init_session(model_name,provider = "CUDAExecutionProvider"):
     session = ort.InferenceSession(Config.ModelSavePathName(model_name), providers=[provider])
@@ -224,8 +224,9 @@ def run_by_routine(processes,batch=data_batch):
     return
 
 def main():
-    run_by_process_with_name(["googlenet","squeezenetv1","vgg19","resnet50"])
-    processes=load_process(["googlenet","squeezenetv1","vgg19","resnet50"])
+    # ["googlenet","squeezenetv1","vgg19","resnet50"]
+    run_by_process_with_name(["googlenet","vgg19"])
+    processes=load_process(["googlenet","vgg19"])
     run_serially(processes)
     run_by_thread(processes)
     run_by_routine(processes)
