@@ -14,7 +14,7 @@ import os
 
 provider = "CUDAExecutionProvider"
 default_batchsize=15
-data_batch=300
+data_batch=1
 
 def init_session(model_name,provider = "CUDAExecutionProvider"):
     session = ort.InferenceSession(os.path.join(os.path.dirname(os.path.abspath(__file__)),model_name+".onnx"), providers=[provider])
@@ -64,7 +64,7 @@ def signal_process(model_name,data_batch=data_batch,provider = "CUDAExecutionPro
     proccess_cost=time.time()-process_start
 
     print(">",model_name,"(s):",sum(costs))
-    print(model_name,"process sum (s):",proccess_cost,provider=provider)
+    print(model_name,"process sum (s):",proccess_cost)
    
 
 def main():

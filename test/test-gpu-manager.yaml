@@ -1,25 +1,3 @@
-how to run: 
-
-```shell
-docker pull mcr.microsoft.com/azureml/onnxruntime:latest-cuda
-docker run -it --name=test-myonnx --runtime=nvidia  -v /home/onceas/yutian/OnnxSplitRunner:/mytest  mcr.microsoft.com/azureml/onnxruntime:latest-cuda /bin/bash
-
-cd /mytest
-python3 test/multi-run/googlenet.py
-```
-
-
-test env=dell02-tesla-T4, batch_size=15, count=900
-
-
-| model-name | serial-run(s) | multi-process(s) | pods-gpu-manager(s) |
-| :---: | :---: | :---: | :---: |
-| googlenet | 16.45 | 75.21 | 72.68 |
-| resnet50 | 31.71 | 83.91 | 171.74 |
-| squeezenetv1 | 11.44 | 59.20 | 58.35 |
-|vgg19 | 96.14 | 152.28 | 379.66 |
-
-``` yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -63,4 +41,27 @@ spec:
         hostPath:
           path: /OnnxSplitRunner
           type: DirectoryOrCreate
-```
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: test-muti-process
+#   annotations:
+#     tencent.com/vcuda-core-limit: 25
+# spec:
+#   restartPolicy: Never
+#   containers:
+#   - image: mcr.microsoft.com/azureml/onnxruntime:latest-cuda
+#     name: onnx-gpu-test
+#     command:
+#     - /usr/local/nvidia/bin/nvidia-smi
+#     - pmon
+#     - -d
+#     - 10
+#     resources:
+#       requests:
+#         tencent.com/vcuda-core: 25
+#         tencent.com/vcuda-memory: 10
+#       limits:
+#         tencent.com/vcuda-core: 25
+#         tencent.com/vcuda-memory: 10
+#     vol
