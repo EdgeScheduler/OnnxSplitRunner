@@ -1,4 +1,4 @@
-how to run: 
+# how to run onnxruntime by docker: 
 
 ```shell
 docker pull mcr.microsoft.com/azureml/onnxruntime:latest-cuda
@@ -8,7 +8,7 @@ cd /mytest
 python3 test/multi-run/googlenet.py
 ```
 
-
+# test with k8s
 test env=dell02-tesla-T4, batch_size=15, count=900
 
 
