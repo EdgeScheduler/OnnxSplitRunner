@@ -9,7 +9,7 @@ python3 test/multi-run/googlenet.py
 ```
 
 # test with k8s
-test env=dell02-tesla-T4, batch_size=15, count=900
+test environment is `GPU: tesla-T4`, `inference Batch size`=15, count=900
 
 
 | model-name | serial-run(s) | multi-process(s) | pods-gpu-manager(s) |
