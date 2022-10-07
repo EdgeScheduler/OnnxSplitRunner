@@ -18,7 +18,7 @@ def SplitModel(model_name,onnx_path=None):
     split_nodes=[modelAnalyzer[0]]
 
     for node in convergenceNodes:
-        if node.idx-split_nodes[-1].idx>len(modelAnalyzer)//8:
+        if node.idx-split_nodes[-1].idx>len(modelAnalyzer)//2:
             split_nodes.append(node)
 
 
@@ -41,5 +41,5 @@ def SplitModel(model_name,onnx_path=None):
     modelAnalyzer.SplitAndStoreChilds(split_nodes)
 
 if __name__ == "__main__":
-    model_name = "googlenet"
+    model_name = "resnet50"
     SplitModel(model_name)
