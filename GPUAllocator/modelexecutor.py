@@ -33,6 +33,7 @@ class ModelExecutor:
             self.modelInferenceSessions.append(session)
             self.modelOutputLabels.append([v.name for v in session.get_outputs()])
             self.modelInputs.append(deque())
+            start+=1
         self.modelInput=self.modelInputs[0]
 
     def AddRequest(self,input_dict):

@@ -30,6 +30,8 @@ def StartProcess(model_name:str,input_queue:Queue,run_signal: Pipe,done_signal: 
 
     '''
 
+    print("init %s executor..."%model_name)
+
     all_threads=[]
     task_time_record=queue.Queue()
     myexecutor=ModelExecutor(model_name)
@@ -66,12 +68,14 @@ def StartProcess(model_name:str,input_queue:Queue,run_signal: Pipe,done_signal: 
     data_out_thread.start()
 
     # wait all thread done. In fact, they run with no end.
+    print("init %s executor ok."%model_name)
     for mythread in all_threads:
         mythread.join()
 
     print("process to deal %s exit."%(model_name))
 
 def RunTest(myexecutor: ModelExecutor, run_signal: Pipe, done_signal: Pipe,test_ok:Pipe,input_shapes:dict,default_batchsize=15)->bool:
+    success=True
     test_input={}
     for input_shape in input_shapes:
         shape=[v if v>=0 else default_batchsize for v in input_shape["shape"]]
@@ -80,11 +84,11 @@ def RunTest(myexecutor: ModelExecutor, run_signal: Pipe, done_signal: Pipe,test_
     myexecutor.AddRequest(test_input)
     for _ in myexecutor.modelInferenceSessions:
         run_signal.send(1)
-
+ 
     try:
         myexecutor.modelOutput.get(block=True,timeout=180)
     except Exception as ex:
-        return False
+        success=False
     finally:
         # clear done_signal created by test
         count=myexecutor.todo
@@ -93,6 +97,11 @@ def RunTest(myexecutor: ModelExecutor, run_signal: Pipe, done_signal: Pipe,test_
         for _ in range(count):
             done_signal.recv()
 
+    if success:
         test_ok.send(1)
         test_ok.close()
-    return True
+        return True
+    else:
+        test_ok.send(0)
+        test_ok.close()
+        return False
