@@ -13,7 +13,11 @@ default_batchsize=15
 data_batch=900
 
 def init_session(model_name,provider = "CUDAExecutionProvider"):
-    session = ort.InferenceSession(Config.ModelSavePathName(model_name), providers=[provider])
+    options = ort.SessionOptions()
+
+    # 在session中添加了支持profile的option
+    options.enable_profiling=True
+    session = ort.InferenceSession(Config.ModelSavePathName(model_name), providers=[provider], sess_options=options)
     return session
 
 def load_process(model_names:List[str], provider = "CUDAExecutionProvider")->dict:
@@ -71,6 +75,9 @@ def run_serially(processes,batch=data_batch)->dict:
             _ = session.run(label,input_data)
             costs[model_id].append(time.time()-start)
     proccess_cost=time.time()-process_start
+    
+    # 这里结束profile并输出profile文件，chrome里输入chrome://tracing/，然后载入文件可以进行可视化
+    session.end_profiling()
 
     print("signal models total (s):")
     for idx in range(len(model_names)):
@@ -98,6 +105,10 @@ def run_by_process_with_name(model_names,batch=data_batch, provider = "CUDAExecu
             _ = session.run(output_labels,input_dict)
             costs.append(time.time()-start)
         print(">",model_name,"(s):",sum(costs))
+
+        # 这里结束profile并输出profile文件，chrome里输入chrome://tracing/，然后载入文件可以进行可视化
+        session.end_profiling()
+
 
     # enc
     print("=> by muti-process, with batch=%d"%(data_batch))
@@ -178,6 +189,9 @@ def run_by_thread(processes,batch=data_batch):
             _ = session.run(labels,input_value)
             costs.append(time.time()-start)
         print(">",model_name,"(s):",sum(costs))
+        
+        # 这里结束profile并输出profile文件，chrome里输入chrome://tracing/，然后载入文件可以进行可视化
+        session.end_profiling()
 
     model_names,sessions,labels,datas=data_to_tuple(processes,batch)
     mythreads = []
