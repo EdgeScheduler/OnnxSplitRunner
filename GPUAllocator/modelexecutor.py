@@ -1,4 +1,3 @@
-from asyncio.windows_utils import pipe
 from collections import deque
 from queue import Queue
 import onnxruntime
@@ -29,7 +28,7 @@ class ModelExecutor:
         '''
         start=0
         while str(start) in models:
-            session=onnxruntime.InferenceSession(models[str(start)],["CUDAExecutionProvider"])
+            session=onnxruntime.InferenceSession(models[str(start)],providers=["CUDAExecutionProvider"])
             self.modelInferenceSessions.append(session)
             self.modelOutputLabels.append([v.name for v in session.get_outputs()])
             self.modelInputs.append(deque())
@@ -47,7 +46,15 @@ class ModelExecutor:
         get new task to deal. return: session, input_data, output_labels
         '''
         input_deque=self.modelInputs[self.todo]
-        return self.modelInferenceSessions[self.todo], None if len(input_deque)<1 else input_deque[0], self.modelOutputLabels[self.todo]
+        input_value=None
+        start=time.time()
+        while len(input_deque) < 1 and time.time()-start<3:
+            pass
+
+        if len(input_deque)>0:
+            input_value=input_deque[0]
+
+        return self.modelInferenceSessions[self.todo], input_value, self.modelOutputLabels[self.todo]
 
     def EndTask(self,result: dict):
         self.modelInputs[self.todo].popleft()
@@ -60,9 +67,8 @@ class ModelExecutor:
 
     def RunCycle(self, run_signal,done_signal):
         while True:
-            # judge
-            while run_signal.recv():
-                self.RunOnce(done_signal)
+            run_signal.recv()
+            self.RunOnce(done_signal)
             
     def RunOnce(self,done_signal):
         '''
@@ -70,6 +76,8 @@ class ModelExecutor:
         '''
         session, input_data, labels=self.GetTask()
         if input_data is None:
+            print("warning: meet no input.")
+            done_signal.send((self.model_name,-1))                  # send news to main-process, current task finished
             return
 
         result=session.run(labels,input_data)
