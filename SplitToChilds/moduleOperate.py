@@ -306,7 +306,7 @@ class ModelAnalyzer():
     def CreateParamsInfo(onnx_path:str,params_path:str,default_batch=15)->Dict[str,dict]:
         model = onnx.load(onnx_path)
         
-        params_dict={"input": {"data":[], "cost":0}, "output":{"data":[], "cost":0}}
+        params_dict={"input": {"data":[], "cost":0}, "output":{"data":[], "cost":0}, "model_path": onnx_path}
 
         weight_params=set([v.name for v in model.graph.initializer])
 
