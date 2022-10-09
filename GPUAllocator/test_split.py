@@ -7,6 +7,10 @@ create test model-split
 def SplitModel(model_name,onnx_path=None,count=1):
     modelAnalyzer=ModelAnalyzer(model_name,onnx_path)
 
+    if model_name=="vgg19":
+        modelAnalyzer.SplitAndStoreChilds([modelAnalyzer[10],modelAnalyzer[19]])
+        return
+
     convergenceNodes = [node for node in modelAnalyzer.GetConvergeNodes() if modelAnalyzer.EnableStart(node)]
     split_nodes=[modelAnalyzer[0]]
 
@@ -18,7 +22,7 @@ def SplitModel(model_name,onnx_path=None,count=1):
 
 if __name__ == "__main__":
     models={
-        "vgg19": 4,
+        "vgg19": 3,
         "resnet50": 2,
         "googlenet": 1,
         "squeezenetv1": 1

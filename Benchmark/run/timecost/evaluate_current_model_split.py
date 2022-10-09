@@ -14,4 +14,4 @@ def EvaluateModel(model_name,onnx_path=None,filename=None):
             json.dump(time_evaluate_dict,fp,indent=4)
 
 if __name__ == "__main__":
-    EvaluateModel("resnet50",filename="resnet50_2.json")
+    EvaluateModel("vgg19",filename="vgg19_3.json")

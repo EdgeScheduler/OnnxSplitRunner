@@ -34,47 +34,65 @@ def create_task():
     squeezenetv1=model_register["squeezenetv1"]["run_signal_main"]
     vgg19=model_register["vgg19"]["run_signal_main"]
 
-    model_register["vgg19"]["input_queue"].put(generate_input(model_register["vgg19"]["input_shape"]))
-    vgg19.send(0)
 
-    # googlenet come during vgg19 running. and googlenet run first
-    time.sleep(0.02)
-    model_register["googlenet"]["input_queue"].put(generate_input(model_register["googlenet"]["input_shape"]))
-    done_signal.recv()
-    googlenet.send(0)
-    done_signal.recv()
+    vgg19_data=generate_input(model_register["vgg19"]["input_shape"])
+    squeezenetv1_data=generate_input(model_register["squeezenetv1"]["input_shape"])
+    vgg19_input_queue=model_register["vgg19"]["input_queue"]
+    squeezenetv1_input_queue=model_register["squeezenetv1"]["input_queue"]
 
-    # vgg19 run again
-    vgg19.send(1)
-    # squeezenetv1 come during vgg19 running
-    time.sleep(0.02)
-    model_register["squeezenetv1"]["input_queue"].put(generate_input(model_register["squeezenetv1"]["input_shape"]))
-    done_signal.recv()
-    squeezenetv1.send(0)
-    done_signal.recv()
+    for _ in range(5):
+        vgg19_input_queue.put(vgg19_data)
+        vgg19.send(0)
+        done_signal.recv()
+        vgg19.send(1)
+        done_signal.recv()
 
-    vgg19.send(2)
-    # resnet50 come during vgg19 running
-    time.sleep(0.007)
-    model_register["resnet50"]["input_queue"].put(generate_input(model_register["resnet50"]["input_shape"]))
-    done_signal.recv()
-    vgg19.send(3)
-    done_signal.recv()
+        squeezenetv1_input_queue.put(squeezenetv1_data)
+        squeezenetv1.send(0)
+        done_signal.recv()
+
+        vgg19.send(2)
+        #time.sleep(0.008)
+        done_signal.recv()
+
+        
+
+    # vgg19.send(0)
+    # # googlenet come during vgg19 running. and googlenet run first
+    # time.sleep(0.008)
+    # model_register["googlenet"]["input_queue"].put(generate_input(model_register["googlenet"]["input_shape"]))
+    # done_signal.recv()
+    # googlenet.send(0)
+    # done_signal.recv()
+
+    # # vgg19 run again
+    # vgg19.send(1)
+    # # squeezenetv1 come during vgg19 running
+    # time.sleep(0.008)
+    # model_register["squeezenetv1"]["input_queue"].put(generate_input(model_register["squeezenetv1"]["input_shape"]))
+    # done_signal.recv()
+    # squeezenetv1.send(0)
+    # done_signal.recv()
+
+    # vgg19.send(2)
+    # # resnet50 come during vgg19 running
+    # time.sleep(0.007)
+    # model_register["resnet50"]["input_queue"].put(generate_input(model_register["resnet50"]["input_shape"]))
+    # done_signal.recv()
+    
+    # resnet50.send(0)
+    # # squeezenetv1 come during resnet50 running, resnet50 exit.
+    # time.sleep(0.008)
+    # model_register["squeezenetv1"]["input_queue"].put(generate_input(model_register["squeezenetv1"]["input_shape"]))
+    # done_signal.recv()
+    # squeezenetv1.send(0)
+    # done_signal.recv()
+    # resnet50.send(1)
+    # done_signal.recv()
 
     
-    resnet50.send(0)
-    # squeezenetv1 come during resnet50 running, resnet50 exit.
-    time.sleep(0.008)
-    model_register["squeezenetv1"]["input_queue"].put(generate_input(model_register["squeezenetv1"]["input_shape"]))
-    done_signal.recv()
-    squeezenetv1.send(0)
-    done_signal.recv()
-    resnet50.send(1)
-    done_signal.recv()
-
     
-    
-    for _ in model_register:
+    while True:
         result=model_register["output_queue"].get()
         print(result[0],"=>  cost:",round(( result[3]-result[2])*1000)/1000.0)
 
