@@ -189,11 +189,11 @@ class ModelAnalyzer():
                     if self.start_node is None and ("global" not in info or not info["global"]):
                         self.start_node=node
 
-        if len(self.nodes[0].input_info)<1:
+        if len(self.nodes[0].input_info)<1:     # empty-dict
             info=ModelAnalyzer.CreateParamsInfo(self.onnxPath,Config.ModelParamsSavePathName(self.modelName))
             self.nodes[0].input_info=info["input"]
             cache["data"]["0"]=info
-            cache["global"]=True
+            cache["data"]["0"]["global"]=True
             if "output" in cache["data"]["0"]:
                 del cache["data"]["0"]["output"]
 

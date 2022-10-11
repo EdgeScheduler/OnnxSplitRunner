@@ -14,12 +14,12 @@ def SplitModel(model_name,onnx_path=None):
     # costs_all=[(node.idx, node.input_info["cost"]) for node in nodes]
     # costs_all=sorted(costs_all,key=lambda x:x[1],reverse=False)
 
-    convergenceNodes = [node for node in modelAnalyzer.GetConvergeNodes() if modelAnalyzer.EnableStart(node)]
-    split_nodes=[modelAnalyzer[0]]
+    # convergenceNodes = [node for node in modelAnalyzer.GetConvergeNodes() if modelAnalyzer.EnableStart(node)]
+    # split_nodes=[modelAnalyzer[0]]
 
-    for node in convergenceNodes:
-        if node.idx-split_nodes[-1].idx>len(modelAnalyzer)//4:
-            split_nodes.append(node)
+    # for node in convergenceNodes:
+    #     if node.idx-split_nodes[-1].idx>len(modelAnalyzer)//4:
+    #         split_nodes.append(node)
 
 
     # costs_convergence=[(node.idx, node.input_info["cost"]) for node in convergenceNodes]
@@ -38,8 +38,8 @@ def SplitModel(model_name,onnx_path=None):
 
     # modelAnalyzer.SplitAndStoreChilds(split_nodes)
     # convergenceNodes = modelAnalyzer.GetConvergeNodes()
-    modelAnalyzer.SplitAndStoreChilds(split_nodes)
+    modelAnalyzer.SplitAndStoreChilds(modelAnalyzer.GetAllNodes())
 
 if __name__ == "__main__":
-    model_name = "vgg19"
+    model_name = "googlenet"
     SplitModel(model_name)

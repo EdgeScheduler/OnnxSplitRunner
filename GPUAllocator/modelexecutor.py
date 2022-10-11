@@ -1,91 +1,83 @@
-from collections import deque
-from queue import Queue
+from multiprocessing import Pipe
 import onnxruntime
-import time
 from typing import Tuple
-
-# data append later get bigger index
 
 class ModelExecutor:
     '''
     use deque instead of queue, because we can not read head-item without pop it from queue.
     '''
-    def __init__(self,model_name):
+    def __init__(self,model_name: str,input_pipe: Pipe,output_pipe: Pipe, run_signal: Pipe, done_signal: Pipe):
         self.modelInferenceSessions=[]      # type：list[onnxruntime.InferenceSession]
-        self.modelInputs=[]                 # type: list[deque]
-        self.modelOutputLabels=[]           # type: list[str]
-        self.modelInput=None                # 
-        self.modelOutput=Queue()            # type: Queue
-        self.todo=0
-        self.model_name=model_name
+        self.ProcessInputs=[]               # 0：Pipe, 1~n: numpy.array or None
 
-    def Init(self,models: dict):
+        self.modelName=model_name
+        self.modelInput=input_pipe
+        self.modelOutput=output_pipe
+
+        self.doneSignal=done_signal
+        self.runSignal=run_signal
+
+        self.ProcessOutputLabels=[]           # type: list[str]
+        self.todo=0
+        self.childsCount=0
+
+    def Init(self,models_dict: dict):
         '''
         {
             "0": "xxx.onnx",
             "1": "xxx.onnx"
         }
         '''
-        start=0
-        while str(start) in models:
-            session=onnxruntime.InferenceSession(models[str(start)],providers=["CUDAExecutionProvider"])
+        self.childsCount=0
+        while str(self.childsCount) in models_dict:
+            session=onnxruntime.InferenceSession(models_dict[str(self.childsCount)],providers=["CUDAExecutionProvider"])
             self.modelInferenceSessions.append(session)
-            self.modelOutputLabels.append([v.name for v in session.get_outputs()])
-            self.modelInputs.append(deque())
-            start+=1
-        self.modelInput=self.modelInputs[0]
-
-    def AddRequest(self,input_dict):
-        self.modelInput.append(input_dict)
+            self.ProcessOutputLabels.append([v.name for v in session.get_outputs()])
+            self.ProcessInputs.append(None)
+            self.childsCount+=1
+        self.ProcessInputs[0]=self.modelInput
 
     def Next(self):
-        self.todo=(self.todo+1) % len(self.modelInferenceSessions)
+        self.todo=(self.todo+1) % self.childsCount
 
     def GetTask(self)->Tuple[onnxruntime.InferenceSession, Tuple[dict,float,float], list]:
         '''
         get new task to deal. return: session, input_data, output_labels
         '''
-        input_deque=self.modelInputs[self.todo]
+
         input_value=None
-        start=time.time()
-        while len(input_deque) < 1 and time.time()-start<3:
-            pass
+        if self.todo==0:
+            input_value=self.ProcessInputs[0].recv()
+        else:
+            input_value=self.ProcessInputs[self.todo]
+            self.ProcessInputs[self.todo]=None
 
-        if len(input_deque)>0:
-            input_value=input_deque[0]
-
-        return self.modelInferenceSessions[self.todo], input_value, self.modelOutputLabels[self.todo]
+        return self.modelInferenceSessions[self.todo], input_value, self.ProcessOutputLabels[self.todo]
 
     def EndTask(self,result: dict):
-        self.modelInputs[self.todo].popleft()
-        if self.todo+1<len(self.modelInputs):
-            self.modelInputs[self.todo+1].append(result)
+        if self.todo+1<self.childsCount:
+            self.ProcessInputs[self.todo+1]=result
         else:
-            self.modelOutput.put(result)
+            self.modelOutput.send(result)
 
         self.Next()
 
-    def RunCycle(self, run_signal,done_signal):
+    def RunCycle(self):
+        print("start to run %s-cycle.\n"%self.modelName)
         while True:
-            run_signal.recv()
-            self.RunOnce(done_signal)
+            session, input_data, labels=self.GetTask()
+            self.runSignal.recv()
+            self.RunOnce(session, input_data, labels)
             
-    def RunOnce(self,done_signal):
+    def RunOnce(self,session, input_data, labels):
         '''
         Run one cycle
         '''
-        session, input_data, labels=self.GetTask()
         if input_data is None:
             print("warning: meet no input.")
-            done_signal.send((self.model_name,-1))                  # send news to main-process, current task finished
+            self.doneSignal.send((self.modelName,-1))                  # send news to main-process, current task finished
             return
 
         result=session.run(labels,input_data)
-        done_signal.send((self.model_name,self.todo))               # send news to main-process, current task finished
+        self.doneSignal.send((self.modelName,self.todo))               # send news to main-process, current task finished
         self.EndTask({k:v for k,v in zip(labels,result)})
-
-    def IsFree(self)->bool:
-        if len(self.modelInputs)<1 and self.todo==0:
-            return True
-        else:
-            return False

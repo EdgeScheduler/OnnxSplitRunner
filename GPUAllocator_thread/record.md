@@ -22,3 +22,4 @@ child-model with 2080Ti:
 | squeezenetv1 | 0.005  | - | - | 
 | vgg19 | 0.016  | 0.016 | 0.019 |
 
+ 

@@ -1,5 +1,7 @@
+from concurrent.futures import thread
 from multiprocessing import Pipe,Process, Queue
 from threading import Thread
+import queue
 from GPUAllocator.manager import StartProcess
 from config import Config
 import time
@@ -78,29 +80,48 @@ def create_task():
         result=model_register["output_queue"].get()
         print(result[0],"=>  cost:",round(( result[3]-result[2])*1000)/1000.0)
 
-def RunAllocator(models: list,default_batchsize=15):
-    global model_register,output_queue,allocator_ready
-    model_register["models"]=[]
+def RunAllocator(models: list,input_queue: Queue,output_queue: Queue):
+    model_register={}
+    model_register["models"]=models
+    model_register["input_queue"]=input_queue
     model_register["output_queue"]=output_queue
+
     done_signal_main,done_signal_child=Pipe()
     model_register["done_signal_main"]=done_signal_main
     model_register["done_signal_child"]=done_signal_child
 
-    all_process=[]
+    executor_args=[]
+    communicate_dict={}
     for model_name in models:
+        communicate_list=[]
+
         model_register[model_name]={}
         model_register[model_name]["count"]=0
-        model_register[model_name]["input_queue"]=Queue()
+        timer_queue=queue.Queue()
+        model_register[model_name]["timer"]=timer_queue
+        communicate_list.append(timer_queue)
+
+        input_pipe_main, input_pipe_child=Pipe()
+        model_register[model_name]["input_pipe_main"]=input_pipe_main
+        model_register[model_name]["input_pipe_child"]=input_pipe_child
+        communicate_list.append(input_pipe_main)
+
+        output_pipe_main, output_pipe_child=Pipe()
+        model_register[model_name]["output_pipe_main"]=output_pipe_main
+        model_register[model_name]["output_pipe_child"]=output_pipe_child
+        communicate_list.append(output_pipe_main)
+
         run_signal_main,run_signal_child=Pipe()
         model_register[model_name]["run_signal_main"]=run_signal_main
         model_register[model_name]["run_signal_child"]=run_signal_child
-        # process_ok_main,process_ok_child=Pipe()
 
         model_params=Config.ChildModelSumParamsDict(model_name)
         model_dict={}
         for idx in range(len(model_params)-1):
             model_dict[str(idx)]=model_params[str(idx)]["model_path"]
             model_register[model_name]["count"]+=1
+
+        model_register[model_name]["model_dict"]=model_dict
 
         input_shape=[]
         for shape in model_params["-1"]["input"]["data"]:
@@ -110,44 +131,98 @@ def RunAllocator(models: list,default_batchsize=15):
             tmp["shape"]=shape["shape"]
             input_shape.append(tmp)
         model_register[model_name]["input_shape"]=input_shape
-        myprocess=Process(target=StartProcess,args=(model_name,model_register[model_name]["input_queue"],run_signal_child,done_signal_child,output_queue,model_dict))
-        myprocess.start()
-        all_process.append(myprocess)
 
-        # create test
-        model_register[model_name]["input_queue"].put(generate_input(input_shape,default_batchsize))
-        for idx in range(model_register[model_name]["count"]):
-            run_signal_main.send(idx)
-            done_signal_main.recv()
+        communicate_dict[model_name]=communicate_list
+        executor_args.append([model_name,input_pipe_child,output_pipe_child,run_signal_child,done_signal_child,model_dict])
 
-        try:
-            output_queue.get(block=True,timeout=180)
-        except Exception as ex:
-            print("run model: %s may meet some error, fail to finish in 3 minutes, process exit."%(model_name))
-            if not run_signal_main.closed():
-                run_signal_main.close()
-            if not run_signal_child.closed():
-                run_signal_child.close()
-            del model_register[model_name]
+    def deal_process(args: list):
+        '''
+        run all executor in threads with one independent Process.
+        '''
+        threads=[]
+        for arg in args:
+            mythread=Thread(target=StartProcess,args=(arg))
+            mythread.start()
+            threads.append(mythread)
 
-            myprocess.close()
-            all_process.pop()
-        model_register["models"].append(model_name)
-        print("test run %s ok."%model_name)
-    print("success to start all executor.")
-    allocator_ready=True
-    for myprocess in all_process:
-        myprocess.join()
+        for mythread in threads:
+            mythread.join()
+
+    run_deal_process=Process(target=deal_process,args=(executor_args,))
+    run_deal_process.start()
+
+    def assign_task(input_queue: Queue,output_queue: Queue, communicate_dict:dict):
+        '''
+        model_dict: 
+        {
+            "$model_name": [timer, input_pipe_main, output_pipe_main]
+        }
+        '''
+        def give_input(input_queue,communicate_dict):
+            while True:
+                task=input_queue.get()
+                model_name,data=task[0],task[1]
+                input_pipe=communicate_dict[model_name][1]
+                timer=communicate_dict[model_name][0]
+                timer.put(time.time())
+                input_pipe.send(data)
+        def read_output(model_name,output_pipe):
+            while True:
+                result=output_pipe.recv()
+                end_time=time.time()
+                start_time=communicate_dict[model_name][0].get()
+                output_queue.put((model_name,result,start_time,end_time))
+        
+        threads=[]
+        input_thread=Thread(target=give_input,args=(input_queue,communicate_dict))
+        input_thread.start()
+
+        threads.append(input_thread)
+
+        for model_name in communicate_dict:
+            mythread=Thread(target=read_output,args=(model_name,communicate_dict[model_name][2]))
+            mythread.start()
+            threads.append(mythread)
+            
+        for mythread in threads:
+            mythread.join()
+
+    run_assign_task=Process(target=assign_task,args=(input_queue,output_queue,communicate_dict))
+    run_assign_task.start()
+
+    return model_register,run_deal_process,run_assign_task
+
+def RunTest(model_register,input_queue,output_queue):
+    print("-------test system-------")
+    for model_name in model_register["models"]:
+        count = model_register[model_name]["count"]
+        input_shape = model_register[model_name]["input_shape"]
+        run_signal= model_register[model_name]["run_signal_main"]
+        done_signal= model_register["done_signal_main"]
+
+        input_queue.put((model_name,generate_input(input_shape)))
+        for _ in range(count):
+            run_signal.send(1)
+            done_signal.recv()
+
+        result=output_queue.get()
+        print("test %s ok, finished in %fs"%(result[0],round(result[3]*10000-result[2]*10000)/10000))
+    print("----------end----------")
 
 def main():
-    allocator_thread=Thread(target=RunAllocator,args=(["googlenet","vgg19","resnet50","squeezenetv1"],15))
-    allocator_thread.start()
+    input_queue=Queue()
+    output_queue=Queue()
+    model_register,run_deal_process,run_assign_task=RunAllocator(["googlenet","vgg19","resnet50","squeezenetv1"],input_queue,output_queue)
 
-    data_create_thread=Thread(target=create_task)
-    data_create_thread.start()
+    for _ in range(10):
+        RunTest(model_register,input_queue,output_queue)
 
-    allocator_thread.join()
-    data_create_thread.join()
+    run_deal_process.join()
+    run_assign_task.join()
+
+    # data_create_thread=Thread(target=create_task)
+    # data_create_thread.start()
+    # data_create_thread.join()
     
 
 if __name__ == "__main__":
