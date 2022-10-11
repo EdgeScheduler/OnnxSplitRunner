@@ -6,7 +6,7 @@ cuda-drivers
 *.tar
 *.onnx
 Onnxs/*
-!Onnxs/*.py
+!Onnxs/scripts
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
