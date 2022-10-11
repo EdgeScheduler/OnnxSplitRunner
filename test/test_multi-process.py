@@ -10,7 +10,7 @@ from typing import List,Tuple
 
 provider = "CUDAExecutionProvider"
 default_batchsize=15
-data_batch=1000
+data_batch=10
 
 def init_session(model_name,provider = "CUDAExecutionProvider"):
     session = ort.InferenceSession(Config.ModelSavePathName(model_name), providers=[provider])
